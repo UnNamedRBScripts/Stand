@@ -1,0 +1,138 @@
+local resetCommands = {"Reset!", "Re!", "Reset", "Re", ".Re"}
+
+-- Function to reset the character
+local function resetCharacter()
+    local player = game.Players.LocalPlayer
+    if player and player.Character then
+        player.Character:BreakJoints()
+    end
+end
+
+-- Function to create a notification
+local function createNotification(message)
+    local player = game.Players.LocalPlayer
+    local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+    local textLabel = Instance.new("TextLabel", screenGui)
+    
+    textLabel.Size = UDim2.new(0.3, 0, 0.1, 0)
+    textLabel.Position = UDim2.new(0.35, 0, 0.45, 0)
+    textLabel.BackgroundColor3 = Color3.new(0, 0, 0)
+    textLabel.BackgroundTransparency = 0.5
+    textLabel.TextColor3 = Color3.new(1, 1, 1)
+    textLabel.TextScaled = true
+    textLabel.Text = message
+
+    -- Remove the notification after 3 seconds
+    wait(3)
+    screenGui:Destroy()
+end
+
+-- Function to run the additional script
+local function runAdditionalScript()
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+    local animate = character:WaitForChild("Animate")
+
+    -- Set vampire animation IDs for walk and run
+    animate.walk.WalkAnim.AnimationId = "http://www.roblox.com/asset/?id=1083473930" -- Vampire walk animation
+    animate.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=1083462077" -- Vampire run animation
+
+    -- Disable jumping
+    humanoid.Jump = false
+
+    -- Optionally, play an idle vampire animation
+    local vampireIdleAnimationId = "rbxassetid://1083445855" -- Vampire idle animation
+    local vampireIdleAnimation = Instance.new("Animation")
+    vampireIdleAnimation.AnimationId = vampireIdleAnimationId
+    local animationTrack = humanoid:LoadAnimation(vampireIdleAnimation)
+    animationTrack.Looped = true
+    animationTrack:Play()
+
+    -- Function to enable noclip
+    local function enableNoclip()
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+
+    -- Enable noclip
+    enableNoclip()
+
+    -- Wait to ensure everything is set up
+    wait(1)
+
+    -- Continue with the teleportation logic
+    getgenv().teleport = true
+
+    local leftOffset = 2
+    local backOffset = 2
+
+    while getgenv().teleport do
+        wait(0.05) -- Shortened teleport delay
+
+        local targetPlayer = game.Players:FindFirstChild(targetPlayerName)
+
+        if not targetPlayer then
+            error("Target player not found!")
+        end
+
+        local targetCharacter = targetPlayer.Character or targetPlayer.CharacterAdded:Wait()
+        local targetHumanoidRootPart = targetCharacter:WaitForChild("HumanoidRootPart")
+
+        local targetCFrame = targetHumanoidRootPart.CFrame
+        local lookVector = targetCFrame.LookVector
+        local leftVector = -targetCFrame.RightVector -- Left direction is the negative RightVector
+        
+        -- Calculate the offset position
+        local offsetPosition = targetCFrame.Position - (lookVector * backOffset) + (leftVector * leftOffset)
+
+        local TweenService = game:GetService('TweenService')
+        local newCFrame = CFrame.new(offsetPosition, offsetPosition + lookVector) -- Face the same direction as the target
+
+        local tweenInfo = TweenInfo.new(0.05, Enum.EasingStyle.Linear) -- Duration set to 0.05
+        local tweenProperties = {
+            CFrame = newCFrame
+        }
+
+        local tween = TweenService:Create(character:WaitForChild("HumanoidRootPart"), tweenInfo, tweenProperties)
+        tween:Play()
+
+        -- Ensure noclip remains enabled
+        enableNoclip()
+    end
+
+    -- Stop the vampire idle animation if needed (e.g., when teleportation stops)
+    animationTrack:Stop()
+end
+
+-- Function to detect when the target player says any of the specified commands
+local function onChatted(player, message)
+    if player.Name == targetPlayerName then
+        for _, command in ipairs(resetCommands) do
+            if message == command then
+                resetCharacter()
+                createNotification("Command detected! Character will reset.")
+                wait(4) -- Wait 4 seconds after resetting
+                runAdditionalScript()
+                break
+            end
+        end
+    end
+end
+
+-- Connect to the Chatted event of all players
+game.Players.PlayerAdded:Connect(function(player)
+    player.Chatted:Connect(function(message)
+        onChatted(player, message)
+    end)
+end)
+
+-- Connect to the Chatted event of players already in the game
+for _, player in pairs(game.Players:GetPlayers()) do
+    player.Chatted:Connect(function(message)
+        onChatted(player, message)
+    end)
+end
